@@ -4,6 +4,8 @@ import wave
 import math
 
 from intelligent_video.editor import VideoEditor
+import webrtcvad_stub
+import intelligent_video.editor as editor
 
 
 def _write_wav(path, samples, sr):
@@ -30,6 +32,24 @@ def test_split_on_silence(tmp_path):
 
     editor = VideoEditor(str(audio_path))
     segments = editor.split_on_silence(output_dir=str(tmp_path))
+
+    assert len(segments) == 2
+    for seg in segments:
+        assert os.path.exists(seg)
+        with wave.open(seg, 'rb') as wf:
+            duration = wf.getnframes() / wf.getframerate()
+            assert 0.9 <= duration <= 1.1
+
+
+def test_split_on_silence_vad(tmp_path, monkeypatch):
+    audio_path = tmp_path / "sample.wav"
+    generate_test_audio(str(audio_path))
+
+    monkeypatch.setattr(editor, "_import_librosa", lambda: None)
+    monkeypatch.setattr(editor, "_import_webrtcvad", lambda: webrtcvad_stub)
+
+    editor_instance = VideoEditor(str(audio_path))
+    segments = editor_instance.split_on_silence(output_dir=str(tmp_path))
 
     assert len(segments) == 2
     for seg in segments:
